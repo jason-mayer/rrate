@@ -20,10 +20,19 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       
-      - uses: subosito/flutter-action@v2
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.x'
           cache: true
+        background: true
+
+      - name: Setup LCOV
+        uses: hrishikesh-kadam/setup-lcov@v1
+        background: true
+
+      - name: Wait for setup
+        wait-all:
 
       - name: Install dependencies
         run: flutter pub get
@@ -31,26 +40,29 @@ jobs:
       # Uncomment this step to verify the use of 'dart format' on each commit.
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .
+        background: true
 
       # Consider passing '--fatal-infos' for slightly stricter analysis.
       - name: Analyze project source
         run: flutter analyze
+        background: true
 
       # Your project will need to have tests in test/ and a dependency on
       # package:test for this step to succeed. Note that Flutter projects will
       # want to change this to 'flutter test'.
       - name: Run tests
+        id: run-tests
         run: flutter test --coverage --branch-coverage
+        background: true
 
-      - name: Setup LCOV
-        uses: hrishikesh-kadam/setup-lcov@v1
-        if: ${{ github.event_name == 'pull_request' }}
+      - name: Generate coverage
+        run: dart run script/format.dart
+        wait: [run-tests]
+        background: true
 
-      - name: Report coverage
-        uses: zgosalvez/github-actions-report-lcov@v7
-        if: ${{ github.event_name == 'pull_request' }}
+      - name: Create comment
+        uses: peter-evans/commit-comment@v4
+        wait-all:
         with:
-          coverage-files: coverage/lcov.info
-          artifact-name: test-coverage
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          update-comment: true
+          body-path: coverage/coverage.md
+        
