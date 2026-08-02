@@ -1,0 +1,69 @@
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+name: Dart
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          cache: true
+        background: true
+
+      - name: Setup LCOV
+        uses: hrishikesh-kadam/setup-lcov@v1
+        background: true
+
+      - name: Wait for setup
+        wait-all:
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Uncomment this step to verify the use of 'dart format' on each commit.
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
+
+      # Consider passing '--fatal-infos' for slightly stricter analysis.
+      - name: Analyze project source
+        run: flutter analyze
+
+      # Your project will need to have tests in test/ and a dependency on
+      # package:test for this step to succeed. Note that Flutter projects will
+      # want to change this to 'flutter test'.
+      - name: Run tests
+        id: run-tests
+        run: flutter test --coverage --branch-coverage
+
+      - name: Generate coverage
+        run: dart run script/format.dart
+
+      - name: Create comment on PR
+        uses: thollander/actions-comment-pull-request@v3
+        if: ${{ github.event_name == 'pull_request' }}
+        with:
+          file-path: coverage/coverage.md
+
+      - name: Create comment on commit
+        uses: peter-evans/commit-comment@v4
+        if: ${{ github.event_name == 'push' }}
+        with:
+          body-path: coverage/coverage.md
+        
