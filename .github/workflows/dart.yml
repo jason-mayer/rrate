@@ -17,12 +17,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
-
-      # Note: This workflow uses the latest stable version of the Dart SDK.
-      # You can specify other versions if desired, see documentation here:
-      # https://github.com/dart-lang/setup-dart/blob/main/README.md
-      - uses: dart-lang/setup-dart@v1
-      # - uses: dart-lang/setup-dart@9a04e6d73cca37bd455e0608d7e5092f881fd603
+      - uses: subosito/flutter-action@v2
 
       - name: Install dependencies
         run: flutter pub get
@@ -41,8 +36,8 @@ jobs:
       - name: Run tests
         run: flutter test --coverage --branch-coverage
 
-      - name: Report LCOV
-        uses: zgosalvez/github-actions-report-lcov@v7.1.1
+      - name: Report coverage
+        uses: zgosalvez/github-actions-report-lcov@v7
         with:
           coverage-files: coverage/lcov.info
           artifact-name: test-coverage
