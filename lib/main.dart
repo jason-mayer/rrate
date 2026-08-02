@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rrate/tapper.dart';
 
 void main() {
   runApp(const RRate());
@@ -25,9 +26,18 @@ class TapperPage extends StatefulWidget {
 }
 
 class _TapperPage extends State<TapperPage> {
-  Widget get body => Builder(
-    builder: (context) {
-      return FilledButton(onPressed: () {}, child: const Text('Tap'));
+  final Tapper tapper = .new();
+
+  Widget get body => ListenableBuilder(
+    listenable: tapper,
+    builder: (context, child) {
+      return Column(
+        children: [
+          Text('${tapper.estimate?.runningAverage.asBpm ?? '--'}'),
+          const Divider(),
+          for (final delay in tapper.delays) Text(delay),
+        ],
+      );
     },
   );
 
@@ -41,7 +51,12 @@ class _TapperPage extends State<TapperPage> {
         // backgroundColor: theme.colorScheme.surface,
       ),
       backgroundColor: theme.colorScheme.surfaceContainer,
-      body: body,
+      body: Column(
+        children: [
+          FilledButton(onPressed: tapper.tap, child: const Text('Tap')),
+          body,
+        ],
+      ),
     );
   }
 }
