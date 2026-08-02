@@ -55,14 +55,14 @@ jobs:
         run: flutter test --coverage --branch-coverage
         background: true
 
+      - name: Wait for flutter
+        wait-all: 
+
       - name: Generate coverage
         run: dart run script/format.dart
-        wait: [run-tests]
-        background: true
 
       - name: Create comment
         uses: peter-evans/commit-comment@v4
-        wait-all:
         with:
           body-path: coverage/coverage.md
         
