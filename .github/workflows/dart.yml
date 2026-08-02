@@ -40,12 +40,10 @@ jobs:
       # Uncomment this step to verify the use of 'dart format' on each commit.
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .
-        background: true
 
       # Consider passing '--fatal-infos' for slightly stricter analysis.
       - name: Analyze project source
         run: flutter analyze
-        background: true
 
       # Your project will need to have tests in test/ and a dependency on
       # package:test for this step to succeed. Note that Flutter projects will
@@ -53,16 +51,19 @@ jobs:
       - name: Run tests
         id: run-tests
         run: flutter test --coverage --branch-coverage
-        background: true
-
-      - name: Wait for flutter
-        wait-all: 
 
       - name: Generate coverage
         run: dart run script/format.dart
 
-      - name: Create comment
+      - name: Create comment on PR
+        uses: thollander/actions-comment-pull-request@v3
+        if: ${{ github.event_name == 'pull_request' }}
+        with:
+          file-path: coverage/coverage.md
+
+      - name: Create comment on commit
         uses: peter-evans/commit-comment@v4
+        if: ${{ github.event_name == 'push' }}
         with:
           body-path: coverage/coverage.md
         
