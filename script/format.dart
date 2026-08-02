@@ -19,6 +19,8 @@ void main() async {
       '--flat',
       '--no-sourceview',
       '--no-function-coverage',
+      '-t',
+      'flutter test --coverage',
     ]);
 
     if (res.exitCode != 0) {
@@ -76,6 +78,7 @@ void main() async {
     rows.last.remove();
 
     final cols = rows.elementAt(1).children;
+    cols.elementAt(1).innerHtml = '<code>${cols[1].text}</code>';
     final coverage =
         '${cols[4].innerHtml.replaceAll('&nbsp;', '')} (${cols[6].text} / ${cols[5].text})';
 
@@ -121,6 +124,8 @@ void main() async {
     secondRows.elementAt(2).remove();
 
     for (final element in secondRows.skip(3)) {
+      element.children.first.innerHtml =
+          '<code>${element.children.first.text}</code>';
       final percent = element.children.elementAt(1);
       percent.text = percent.innerHtml.replaceAll('&nbsp;', '');
       final elements = element.querySelectorAll('td.coverNumDflt').toList();
