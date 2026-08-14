@@ -1,13 +1,14 @@
 {
     "cSpell.words": [
-        "Dflt",
-        "genhtml",
         "rrate"
     ],
     "cSpell.ignoreWords": [
         "subosito",
         "hrishikesh",
         "kadam",
+        "genhtml",
+        "Dflt",
+        "rmse",
         "zgosalvez"
     ]
 }
