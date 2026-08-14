@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:built_collection/built_collection.dart';
 import 'package:built_value/built_value.dart';
 import 'package:flutter/material.dart' hide Builder;
-import 'package:rrate/number.dart';
 
 part 'tapper.g.dart';
 
@@ -17,8 +16,11 @@ base class Tapper with ChangeNotifier {
     this.sampleSize = 5,
     this.maxError = 0.10,
     DateTime Function()? clock,
-  }) : clock = clock ?? DateTime.now;
-
+  }) : clock = clock ?? DateTime.now {
+    if (sampleSize < 2) {
+      throw ArgumentError.value(sampleSize, 'sampleSize');
+    }
+  }
   final List<DateTime> _taps = [];
   List<DateTime> get taps => List.unmodifiable(_taps);
 
@@ -29,6 +31,10 @@ base class Tapper with ChangeNotifier {
   Sample? get estimate => _estimate;
 
   void _tap() {
+    if (completer.isCompleted) {
+      throw StateError('`tap` was called after the tapper completed');
+    }
+
     _taps.add(clock());
 
     if (_taps.length == 1) return;
@@ -39,7 +45,7 @@ base class Tapper with ChangeNotifier {
 
     _estimate = result.median;
 
-    if (result.tapCount < sampleSize) return;
+    if (result.taps.length < sampleSize) return;
     if (result.rmsePercent > maxError) return;
 
     completer.complete(result);
@@ -58,20 +64,10 @@ abstract class Result implements Built<Result, ResultBuilder> {
 
   DateTime get start;
 
-  int get tapCount;
-  int get sampleSize;
-
   BuiltList<int> get taps;
   BuiltList<Sample> get samples;
 
-  Sample get min;
-  Sample get q1;
   Sample get median;
-  Sample get q3;
-  Sample get max;
-
-  double get medianAbsDeviation;
-  double get robustCv;
 
   Sample? get confidence95lower;
   Sample? get confidence95upper;
@@ -85,40 +81,28 @@ abstract class Result implements Built<Result, ResultBuilder> {
   double get rootMeanSquareError;
   double get rmsePercent;
 
-  static final random = math.Random();
-
   factory Result.from(Iterable<DateTime> taps) => Result._build((builder) {
     final offsets = taps.map((tap) {
       builder.start ??= tap;
       final offset =
           tap.millisecondsSinceEpoch - builder.start!.millisecondsSinceEpoch;
+
       return offset;
-    }).toList();
+    });
 
     builder.taps.addAll(offsets);
-    final tapCount = offsets.length;
-    builder.tapCount = tapCount;
 
-    final samples = offsets.samples.toList();
-    builder.samples.addAll(samples);
+    if (builder.taps.length < 2) {
+      throw ArgumentError(
+        'At least 2 data points are required (${builder.taps.length} provided)',
+        'taps',
+      );
+    }
 
-    final durations = samples.map((s) => s.count).sorted;
+    builder.samples.addAll(builder.taps.build().samples);
 
-    builder.sampleSize = durations.length;
-    builder.tapCount = tapCount;
-
-    builder.min = Sample(durations.first);
-    builder.q1 = Sample(durations.q1 ?? durations.median!);
+    final durations = builder.samples.build().map((s) => s.count).sorted;
     builder.median = Sample(durations.median!);
-    builder.q3 = Sample(durations.q3 ?? durations.median!);
-    builder.max = Sample(durations.last);
-
-    builder.medianAbsDeviation = durations
-        .absDeviationFrom(builder.median!.count)
-        .sorted
-        .median!;
-
-    builder.robustCv = builder.medianAbsDeviation! / builder.median!.count;
 
     final error = offsets.indexed
         .map((i) => (i.$2 - i.$1 * builder.median!.count).toDouble())
@@ -134,25 +118,36 @@ abstract class Result implements Built<Result, ResultBuilder> {
       error.map((e) => math.pow(e, 2)).sum / (error.length - 1),
     );
     builder.rmsePercent = builder.rootMeanSquareError! / builder.median!.count;
+  });
+}
 
-    if (durations.length > 1) {
-      final list = List.generate(10000, (_) {
-        final taps = List.generate(samples.length, (index) {
-          return samples[random.nextInt(samples.length)];
-        });
+abstract class Confidence implements Built<Confidence, ConfidenceBuilder> {
+  Confidence._();
 
-        return taps.map((s) => s.count).sorted.median!;
+  static final random = math.Random();
+
+  factory Confidence._build(void Function(ConfidenceBuilder builder) build) =
+      _$Confidence;
+
+  Sample get lower;
+  Sample get upper;
+  double get ciWidth;
+
+  factory Confidence.from(Result result) => Confidence._build((builder) {
+    final samples = result.samples;
+
+    final list = List.generate(10000, (_) {
+      final taps = List.generate(samples.length, (index) {
+        return samples[random.nextInt(samples.length)];
       });
 
-      list.sort((a, b) => a.compareTo(b));
-      builder.confidence95lower = Sample(list.percentile(0.025)!);
-      builder.confidence95upper = Sample(list.percentile(0.975)!);
-      builder.ciWidth =
-          (builder.confidence95upper! - builder.confidence95lower!).count
-              .toDouble();
+      return taps.map((s) => s.count).sorted.median!;
+    });
 
-      builder.ciWidthPercent = builder.ciWidth! / builder.median!.count;
-    }
+    list.sort((a, b) => a.compareTo(b));
+    builder.lower = Sample(list.percentile(0.025)!);
+    builder.upper = Sample(list.percentile(0.975)!);
+    builder.ciWidth = (builder.upper! - builder.lower!).count.toDouble();
   });
 }
 
@@ -168,9 +163,6 @@ extension on List<num> {
 
     return this[index].toDouble();
   }
-
-  double? get q1 => take(length ~/ 2).toList().median;
-  double? get q3 => skip(length ~/ 2 + length % 2).toList().median;
 
   double? percentile(double percentile) {
     if (isEmpty) return null;
@@ -191,55 +183,6 @@ extension<N extends num> on Iterable<N> {
 
   List<N> get sorted => toList()..sort((a, b) => a.compareTo(b));
 
-  Iterable<N> absDeviationFrom(N n) => map((s) => (s - n).abs() as N);
-
-  // double? get correlation {
-  //   int n = 0;
-  //   int sumX = 0;
-  //   num sumY = 0;
-  //   num sumXY = 0;
-  //   num sumX2 = 0;
-  //   num sumY2 = 0;
-
-  //   for (final (index, y) in indexed) {
-  //     n++;
-  //     final x = index;
-  //     sumX += x;
-  //     sumY += y;
-  //     sumXY += x * y;
-  //     sumX2 += math.pow(x, 2);
-  //     sumY2 += math.pow(y, 2);
-  //   }
-
-  //   if (n == 0) return null;
-
-  //   final top = (n * sumXY) - (sumX * sumY);
-  //   final bottom = math.sqrt(
-  //     ((n * sumX2) - math.pow(sumX, 2)) * ((n * sumY2) - math.pow(sumY, 2)),
-  //   );
-
-  //   return top / bottom;
-  // }
-
-  // double? get determination {
-  //   final r = correlation;
-  //   if (r == null) return null;
-  //   return math.pow(r, 2).toDouble();
-  // }
-
-  // double? get adjustedR2 {
-  //   int n = 0;
-  //   final r2 = map((i) {
-  //     n++;
-  //     return i;
-  //   }).determination;
-
-  //   if (r2 == null) return null;
-  //   if (n <= 2) return null;
-
-  //   return 1 - ((1 - r2) * 500);
-  // }
-
   Iterable<DistanceSample> get samples sync* {
     final List<N> items = [];
 
@@ -251,5 +194,33 @@ extension<N extends num> on Iterable<N> {
 
       items.add(item);
     }
+  }
+}
+
+class Sample {
+  final num count;
+
+  const Sample(this.count);
+
+  Sample operator -(Sample other) {
+    return Sample(count - other.count);
+  }
+
+  double get asBpm => 60_000 / count;
+
+  @override
+  String toString() {
+    return '${count.toStringAsFixed(0)}ms (${asBpm.toStringAsFixed(1)} bpm)';
+  }
+}
+
+class DistanceSample extends Sample {
+  final int distance;
+
+  const DistanceSample(super.count, this.distance);
+
+  @override
+  String toString() {
+    return '${super.toString()} dist=$distance';
   }
 }
