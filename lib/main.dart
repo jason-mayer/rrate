@@ -11,7 +11,7 @@ class RRate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'RRate',
+      title: 'Respiratory Rate',
       theme: .dark(),
       home: const TapperPage(),
     );
@@ -33,9 +33,8 @@ class _TapperPage extends State<TapperPage> {
     builder: (context, child) {
       return Column(
         children: [
-          Text('${tapper.estimate?.runningAverage.asBpm ?? '--'}'),
+          Text('${tapper.estimate?.asBpm.toStringAsFixed(0) ?? "--"} bpm'),
           const Divider(),
-          for (final delay in tapper.delays) Text(delay),
         ],
       );
     },
@@ -53,7 +52,19 @@ class _TapperPage extends State<TapperPage> {
       backgroundColor: theme.colorScheme.surfaceContainer,
       body: Column(
         children: [
-          FilledButton(onPressed: tapper.tap, child: const Text('Tap')),
+          FutureBuilder(
+            future: tapper.completer.future,
+            builder: (context, snapshot) {
+              if (snapshot.data case final Result data) {
+                return Text(data.toString());
+              }
+
+              return FilledButton(
+                onPressed: tapper.tap,
+                child: const Text('Tap'),
+              );
+            },
+          ),
           body,
         ],
       ),

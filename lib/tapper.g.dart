@@ -6,132 +6,228 @@ part of 'tapper.dart';
 // BuiltValueGenerator
 // **************************************************************************
 
-class _$Estimate extends Estimate {
+class _$Result extends Result {
   @override
-  final int index;
+  final DateTime start;
   @override
-  final Sample duration;
+  final BuiltList<int> taps;
   @override
-  final Sample runningAverage;
+  final BuiltList<Sample> samples;
   @override
-  final double? stability;
+  final Sample median;
+  @override
+  final BuiltList<double> residuals;
+  @override
+  final double maxAbsError;
+  @override
+  final double maxAbsErrorPercent;
+  @override
+  final double rootMeanSquareError;
+  @override
+  final double rmsePercent;
 
-  factory _$Estimate([void Function(EstimateBuilder)? updates]) =>
-      (EstimateBuilder()..update(updates))._build();
+  factory _$Result([void Function(ResultBuilder)? updates]) =>
+      (ResultBuilder()..update(updates))._build();
 
-  _$Estimate._({
-    required this.index,
-    required this.duration,
-    required this.runningAverage,
-    this.stability,
+  _$Result._({
+    required this.start,
+    required this.taps,
+    required this.samples,
+    required this.median,
+    required this.residuals,
+    required this.maxAbsError,
+    required this.maxAbsErrorPercent,
+    required this.rootMeanSquareError,
+    required this.rmsePercent,
   }) : super._();
   @override
-  Estimate rebuild(void Function(EstimateBuilder) updates) =>
+  Result rebuild(void Function(ResultBuilder) updates) =>
       (toBuilder()..update(updates)).build();
 
   @override
-  EstimateBuilder toBuilder() => EstimateBuilder()..replace(this);
+  ResultBuilder toBuilder() => ResultBuilder()..replace(this);
 
   @override
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
-    return other is Estimate &&
-        index == other.index &&
-        duration == other.duration &&
-        runningAverage == other.runningAverage &&
-        stability == other.stability;
+    return other is Result &&
+        start == other.start &&
+        taps == other.taps &&
+        samples == other.samples &&
+        median == other.median &&
+        residuals == other.residuals &&
+        maxAbsError == other.maxAbsError &&
+        maxAbsErrorPercent == other.maxAbsErrorPercent &&
+        rootMeanSquareError == other.rootMeanSquareError &&
+        rmsePercent == other.rmsePercent;
   }
 
   @override
   int get hashCode {
     var _$hash = 0;
-    _$hash = $jc(_$hash, index.hashCode);
-    _$hash = $jc(_$hash, duration.hashCode);
-    _$hash = $jc(_$hash, runningAverage.hashCode);
-    _$hash = $jc(_$hash, stability.hashCode);
+    _$hash = $jc(_$hash, start.hashCode);
+    _$hash = $jc(_$hash, taps.hashCode);
+    _$hash = $jc(_$hash, samples.hashCode);
+    _$hash = $jc(_$hash, median.hashCode);
+    _$hash = $jc(_$hash, residuals.hashCode);
+    _$hash = $jc(_$hash, maxAbsError.hashCode);
+    _$hash = $jc(_$hash, maxAbsErrorPercent.hashCode);
+    _$hash = $jc(_$hash, rootMeanSquareError.hashCode);
+    _$hash = $jc(_$hash, rmsePercent.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
 
   @override
   String toString() {
-    return (newBuiltValueToStringHelper(r'Estimate')
-          ..add('index', index)
-          ..add('duration', duration)
-          ..add('runningAverage', runningAverage)
-          ..add('stability', stability))
+    return (newBuiltValueToStringHelper(r'Result')
+          ..add('start', start)
+          ..add('taps', taps)
+          ..add('samples', samples)
+          ..add('median', median)
+          ..add('residuals', residuals)
+          ..add('maxAbsError', maxAbsError)
+          ..add('maxAbsErrorPercent', maxAbsErrorPercent)
+          ..add('rootMeanSquareError', rootMeanSquareError)
+          ..add('rmsePercent', rmsePercent))
         .toString();
   }
 }
 
-class EstimateBuilder implements Builder<Estimate, EstimateBuilder> {
-  _$Estimate? _$v;
+class ResultBuilder implements Builder<Result, ResultBuilder> {
+  _$Result? _$v;
 
-  int? _index;
-  int? get index => _$this._index;
-  set index(int? index) => _$this._index = index;
+  DateTime? _start;
+  DateTime? get start => _$this._start;
+  set start(DateTime? start) => _$this._start = start;
 
-  Sample? _duration;
-  Sample? get duration => _$this._duration;
-  set duration(Sample? duration) => _$this._duration = duration;
+  ListBuilder<int>? _taps;
+  ListBuilder<int> get taps => _$this._taps ??= ListBuilder<int>();
+  set taps(ListBuilder<int>? taps) => _$this._taps = taps;
 
-  Sample? _runningAverage;
-  Sample? get runningAverage => _$this._runningAverage;
-  set runningAverage(Sample? runningAverage) =>
-      _$this._runningAverage = runningAverage;
+  ListBuilder<Sample>? _samples;
+  ListBuilder<Sample> get samples => _$this._samples ??= ListBuilder<Sample>();
+  set samples(ListBuilder<Sample>? samples) => _$this._samples = samples;
 
-  double? _stability;
-  double? get stability => _$this._stability;
-  set stability(double? stability) => _$this._stability = stability;
+  Sample? _median;
+  Sample? get median => _$this._median;
+  set median(Sample? median) => _$this._median = median;
 
-  EstimateBuilder();
+  ListBuilder<double>? _residuals;
+  ListBuilder<double> get residuals =>
+      _$this._residuals ??= ListBuilder<double>();
+  set residuals(ListBuilder<double>? residuals) =>
+      _$this._residuals = residuals;
 
-  EstimateBuilder get _$this {
+  double? _maxAbsError;
+  double? get maxAbsError => _$this._maxAbsError;
+  set maxAbsError(double? maxAbsError) => _$this._maxAbsError = maxAbsError;
+
+  double? _maxAbsErrorPercent;
+  double? get maxAbsErrorPercent => _$this._maxAbsErrorPercent;
+  set maxAbsErrorPercent(double? maxAbsErrorPercent) =>
+      _$this._maxAbsErrorPercent = maxAbsErrorPercent;
+
+  double? _rootMeanSquareError;
+  double? get rootMeanSquareError => _$this._rootMeanSquareError;
+  set rootMeanSquareError(double? rootMeanSquareError) =>
+      _$this._rootMeanSquareError = rootMeanSquareError;
+
+  double? _rmsePercent;
+  double? get rmsePercent => _$this._rmsePercent;
+  set rmsePercent(double? rmsePercent) => _$this._rmsePercent = rmsePercent;
+
+  ResultBuilder();
+
+  ResultBuilder get _$this {
     final $v = _$v;
     if ($v != null) {
-      _index = $v.index;
-      _duration = $v.duration;
-      _runningAverage = $v.runningAverage;
-      _stability = $v.stability;
+      _start = $v.start;
+      _taps = $v.taps.toBuilder();
+      _samples = $v.samples.toBuilder();
+      _median = $v.median;
+      _residuals = $v.residuals.toBuilder();
+      _maxAbsError = $v.maxAbsError;
+      _maxAbsErrorPercent = $v.maxAbsErrorPercent;
+      _rootMeanSquareError = $v.rootMeanSquareError;
+      _rmsePercent = $v.rmsePercent;
       _$v = null;
     }
     return this;
   }
 
   @override
-  void replace(Estimate other) {
-    _$v = other as _$Estimate;
+  void replace(Result other) {
+    _$v = other as _$Result;
   }
 
   @override
-  void update(void Function(EstimateBuilder)? updates) {
+  void update(void Function(ResultBuilder)? updates) {
     if (updates != null) updates(this);
   }
 
   @override
-  Estimate build() => _build();
+  Result build() => _build();
 
-  _$Estimate _build() {
-    final _$result =
-        _$v ??
-        _$Estimate._(
-          index: BuiltValueNullFieldError.checkNotNull(
-            index,
-            r'Estimate',
-            'index',
-          ),
-          duration: BuiltValueNullFieldError.checkNotNull(
-            duration,
-            r'Estimate',
-            'duration',
-          ),
-          runningAverage: BuiltValueNullFieldError.checkNotNull(
-            runningAverage,
-            r'Estimate',
-            'runningAverage',
-          ),
-          stability: stability,
+  _$Result _build() {
+    _$Result _$result;
+    try {
+      _$result =
+          _$v ??
+          _$Result._(
+            start: BuiltValueNullFieldError.checkNotNull(
+              start,
+              r'Result',
+              'start',
+            ),
+            taps: taps.build(),
+            samples: samples.build(),
+            median: BuiltValueNullFieldError.checkNotNull(
+              median,
+              r'Result',
+              'median',
+            ),
+            residuals: residuals.build(),
+            maxAbsError: BuiltValueNullFieldError.checkNotNull(
+              maxAbsError,
+              r'Result',
+              'maxAbsError',
+            ),
+            maxAbsErrorPercent: BuiltValueNullFieldError.checkNotNull(
+              maxAbsErrorPercent,
+              r'Result',
+              'maxAbsErrorPercent',
+            ),
+            rootMeanSquareError: BuiltValueNullFieldError.checkNotNull(
+              rootMeanSquareError,
+              r'Result',
+              'rootMeanSquareError',
+            ),
+            rmsePercent: BuiltValueNullFieldError.checkNotNull(
+              rmsePercent,
+              r'Result',
+              'rmsePercent',
+            ),
+          );
+    } catch (_) {
+      late String _$failedField;
+      try {
+        _$failedField = 'taps';
+        taps.build();
+        _$failedField = 'samples';
+        samples.build();
+
+        _$failedField = 'residuals';
+        residuals.build();
+      } catch (e) {
+        throw BuiltValueNestedFieldError(
+          r'Result',
+          _$failedField,
+          e.toString(),
         );
+      }
+      rethrow;
+    }
     replace(_$result);
     return _$result;
   }

@@ -1,152 +1,388 @@
 import 'package:flutter_test/flutter_test.dart';
+
 import 'package:rrate/tapper.dart';
 
 void main() {
   group('Tapper', () {
-    late int count;
-    late Tapper tapper;
+    test('rejects sampleSize less than 2', () {
+      expect(
+        () => Tapper(sampleSize: 1),
+        throwsA(
+          isA<ArgumentError>()
+              .having((e) => e.name, 'name', 'sampleSize')
+              .having((e) => e.invalidValue, 'invalidValue', 1),
+        ),
+      );
 
-    setUp(() {
-      count = 0;
-      tapper = Tapper(
+      expect(() => Tapper(sampleSize: 0), throwsArgumentError);
+      expect(() => Tapper(sampleSize: -1), throwsArgumentError);
+    });
+
+    test('starts with no taps or estimate', () {
+      final tapper = Tapper();
+
+      expect(tapper.taps, isEmpty);
+      expect(tapper.estimate, isNull);
+      expect(tapper.completer.isCompleted, isFalse);
+    });
+
+    test('records taps using the supplied clock', () {
+      var index = 0;
+      final times = [
+        DateTime(2026, 1, 1, 12, 0, 0),
+        DateTime(2026, 1, 1, 12, 0, 0, 100),
+      ];
+
+      final tapper = Tapper(clock: () => times[index++]);
+
+      tapper.tap();
+      tapper.tap();
+
+      expect(tapper.taps, times);
+    });
+
+    test('taps are unmodifiable', () {
+      final tapper = Tapper(clock: () => DateTime(2026));
+
+      tapper.tap();
+
+      expect(() => tapper.taps.add(DateTime(2026)), throwsUnsupportedError);
+    });
+
+    test('does not produce an estimate after the first tap', () {
+      final tapper = Tapper(clock: () => DateTime(2026));
+
+      tapper.tap();
+
+      expect(tapper.estimate, isNull);
+      expect(tapper.completer.isCompleted, isFalse);
+    });
+
+    test('produces an estimate after the second tap', () {
+      var time = DateTime(2026);
+
+      final tapper = Tapper(
         clock: () {
-          count++;
-          return DateTime(2026, 1, 1, 0, 0, count, 0);
+          final result = time;
+          time = time.add(const Duration(milliseconds: 100));
+          return result;
         },
       );
-    });
 
-    List<double> tap(int count) {
-      final out = <double>[];
-      for (final _ in Iterable.generate(count)) {
-        tapper.tap();
-
-        if (tapper.estimate == null) continue;
-
-        out.add(tapper.estimate!.stability ?? 0);
-      }
-
-      return out;
-    }
-
-    test('starts with no taps or estimates', () {
-      expect(tapper.taps, isEmpty);
-      expect(tapper.estimates, isEmpty);
-      expect(tapper.estimate, isNull);
-    });
-
-    test('first tap records tap but does not create estimate', () {
-      tap(1);
-
-      expect(tapper.taps.length, 1);
-      expect(tapper.estimates, isEmpty);
-      expect(tapper.estimate, isNull);
-    });
-
-    test('second tap creates first estimate', () {
-      tap(2);
-
-      expect(tapper.taps.length, 2);
-      expect(tapper.estimates.length, 1);
-
-      final estimate = tapper.estimate!;
-
-      expect(estimate.index, 0);
-      expect(estimate.duration.count, 1000);
-      expect(estimate.runningAverage.count, 1000);
-      expect(estimate.stability, isNull);
-      expect(estimate.stability, isNull);
-    });
-
-    test('running average is calculated correctly', () {
-      tapper.tap(); // t=0
-      tapper.tap(); // +1000ms
-      tapper.tap(); // +1000ms
-
-      expect(tapper.estimates.length, 2);
-
-      expect(tapper.estimates[0].runningAverage.count, 1000);
-
-      expect(tapper.estimates[1].runningAverage.count, 1000);
-    });
-
-    test('estimate indexes increment', () {
-      tapper.tap();
       tapper.tap();
       tapper.tap();
 
-      expect(tapper.estimates.map((e) => e.index), [0, 1]);
+      expect(tapper.estimate, isNotNull);
+      expect(tapper.estimate!.count, 100);
+      expect(tapper.completer.isCompleted, isFalse);
     });
 
-    test('stability is high for consistent taps', () {
-      final curve = tap(10);
-      final expected = [
-        0.0,
-        0.5,
-        0.75,
-        0.875,
-        0.9375,
-        0.96875,
-        0.984375,
-        0.9921875,
-        0.99609375,
-      ];
+    test('completes once sampleSize taps have acceptable error', () async {
+      var time = DateTime(2026);
 
-      final estimate = tapper.estimate!;
+      final tapper = Tapper(
+        sampleSize: 3,
+        maxError: 0.01,
+        clock: () {
+          final result = time;
+          time = time.add(const Duration(milliseconds: 100));
+          return result;
+        },
+      );
 
-      expect(estimate.stability, closeTo(1, 0.005));
-      expect(curve, equals(expected));
+      tapper.tap();
+      expect(tapper.completer.isCompleted, isFalse);
+
+      tapper.tap();
+      expect(tapper.completer.isCompleted, isFalse);
+
+      tapper.tap();
+
+      expect(tapper.completer.isCompleted, isTrue);
+
+      final result = await tapper.completer.future;
+
+      expect(result.taps, [0, 100, 200]);
+      expect(result.median.count, 100);
+      expect(result.rmsePercent, 0);
     });
 
-    test('stability decreases for inconsistent taps', () {
+    test('does not complete when RMSE exceeds maxError', () {
       final times = [
-        DateTime(2026, 1, 1, 0, 0, 0),
-        DateTime(2026, 1, 1, 0, 0, 1),
-        DateTime(2026, 1, 1, 0, 0, 5),
+        DateTime(2026),
+        DateTime(2026).add(const Duration(milliseconds: 100)),
+        DateTime(2026).add(const Duration(milliseconds: 250)),
       ];
+      var index = 0;
 
-      tapper = Tapper(clock: () => times.removeAt(0));
+      final tapper = Tapper(
+        sampleSize: 3,
+        maxError: 0.10,
+        clock: () => times[index++],
+      );
 
-      tap(3);
+      tapper.tap();
+      tapper.tap();
+      tapper.tap();
 
-      final estimate = tapper.estimate!;
-      expect(estimate.stability!, lessThan(1));
+      expect(tapper.completer.isCompleted, isFalse);
+      expect(tapper.estimate!.count, 125);
     });
 
-    test('notifies listeners on tap', () {
+    test('can complete on a later tap after an inaccurate sample', () async {
+      final intervals = [150, 100, 100, 100];
+
+      var time = DateTime(2026);
+      var index = 0;
+
+      final tapper = Tapper(
+        sampleSize: 3,
+        maxError: 0.10,
+        clock: () {
+          final result = time;
+          if (index < intervals.length) {
+            time = time.add(Duration(milliseconds: intervals[index++]));
+          }
+          return result;
+        },
+      );
+
+      tapper.tap();
+      tapper.tap();
+      tapper.tap();
+
+      expect(tapper.completer.isCompleted, isFalse);
+
+      tapper.tap();
+
+      expect(tapper.completer.isCompleted, isTrue);
+
+      final result = await tapper.completer.future;
+
+      expect(result.taps.length, 3);
+      expect(result.median.count, 100);
+    });
+
+    test('uses only the most recent sampleSize taps', () {
+      final times = [
+        DateTime(2026),
+        DateTime(2026).add(const Duration(milliseconds: 150)),
+        DateTime(2026).add(const Duration(milliseconds: 200)),
+        DateTime(2026).add(const Duration(milliseconds: 350)),
+      ];
+      var index = 0;
+
+      final tapper = Tapper(sampleSize: 3, clock: () => times[index++]);
+
+      tapper.tap();
+      tapper.tap();
+      tapper.tap();
+
+      // The first three taps are [0, 100, 200].
+      expect(tapper.estimate!.count, 100);
+
+      tapper.tap();
+
+      // The sliding window is now [100, 200, 300].
+      expect(tapper.estimate!.count, 100);
+      expect(tapper.taps, times);
+    });
+
+    test('notifies listeners after every successful tap', () {
+      final tapper = Tapper(clock: () => DateTime(2026));
+
       var notifications = 0;
-
-      tapper.addListener(() {
-        notifications++;
-      });
+      tapper.addListener(() => notifications++);
 
       tapper.tap();
       tapper.tap();
+      tapper.tap();
 
-      expect(notifications, 2);
+      expect(notifications, 3);
     });
 
-    test('taps list is immutable', () {
+    test('throws when tapped after completion', () {
+      var time = DateTime(2026);
+
+      final tapper = Tapper(
+        sampleSize: 2,
+        maxError: 0.01,
+        clock: () {
+          final result = time;
+          time = time.add(const Duration(milliseconds: 100));
+          return result;
+        },
+      );
+
+      tapper.tap();
       tapper.tap();
 
-      expect(() => tapper.taps.add(DateTime.now()), throwsUnsupportedError);
-    });
-
-    test('estimates list is immutable', () {
-      tapper.tap();
-      tapper.tap();
+      expect(tapper.completer.isCompleted, isTrue);
 
       expect(
-        () => tapper.estimates.add(tapper.estimate!),
-        throwsUnsupportedError,
+        tapper.tap,
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            '`tap` was called after the tapper completed',
+          ),
+        ),
+      );
+    });
+  });
+
+  group('Result', () {
+    test('requires at least two taps', () {
+      expect(() => Result.from([DateTime(2026)]), throwsArgumentError);
+
+      expect(() => Result.from(const <DateTime>[]), throwsArgumentError);
+    });
+
+    test('calculates offsets from the first tap', () {
+      final result = Result.from([
+        DateTime(2026),
+        DateTime(2026).add(const Duration(milliseconds: 100)),
+        DateTime(2026).add(const Duration(milliseconds: 250)),
+      ]);
+
+      expect(result.taps, [0, 100, 250]);
+      expect(result.start, DateTime(2026));
+    });
+
+    test('calculates samples from pairwise tap distances', () {
+      final result = Result.from([
+        DateTime(2026),
+        DateTime(2026).add(const Duration(milliseconds: 100)),
+        DateTime(2026).add(const Duration(milliseconds: 200)),
+      ]);
+
+      expect(result.samples.map((s) => s.count), [100, 100, 100]);
+    });
+
+    test('calculates the median sample', () {
+      final result = Result.from([
+        DateTime(2026),
+        DateTime(2026).add(const Duration(milliseconds: 100)),
+        DateTime(2026).add(const Duration(milliseconds: 300)),
+        DateTime(2026).add(const Duration(milliseconds: 600)),
+      ]);
+
+      // 100, 150, 200, 200, 250, 300
+      // sorted: 100, 150, 200, 200, 250, 300
+      // median = 200
+      expect(result.median.count, 200);
+    });
+
+    test('calculates zero error for perfectly regular taps', () {
+      final result = Result.from([
+        DateTime(2026),
+        DateTime(2026).add(const Duration(milliseconds: 100)),
+        DateTime(2026).add(const Duration(milliseconds: 200)),
+        DateTime(2026).add(const Duration(milliseconds: 300)),
+      ]);
+
+      expect(
+        result.toString(),
+        equalsIgnoringWhitespace('''
+Result {
+  start=2026-01-01 00:00:00.000,
+  taps=[0, 100, 200, 300],
+  samples=[100ms (600.0 bpm) dist=1, 100ms (600.0 bpm) dist=2, 100ms (600.0 bpm) dist=1, 100ms (600.0 bpm) dist=3, 100ms (600.0 bpm) dist=2, 100ms (600.0 bpm) dist=1],
+  median=100ms (600.0 bpm),
+  residuals=[0.0, 0.0, 0.0, 0.0],
+  maxAbsError=0.0,
+  maxAbsErrorPercent=0.0,
+  rootMeanSquareError=0.0,
+  rmsePercent=0.0,
+}
+'''),
       );
     });
 
-    test('delays returns estimate strings', () {
-      tapper.tap();
-      tapper.tap();
+    test('calculates residuals', () {
+      final result = Result.from([
+        DateTime(2026),
+        DateTime(2026).add(const Duration(milliseconds: 100)),
+        DateTime(2026).add(const Duration(milliseconds: 250)),
+      ]);
 
-      expect(tapper.delays.single, contains('1000ms'));
+      expect(result.median.count, 125);
+      expect(result.residuals, [0, -25, 0]);
+    });
+
+    test('calculates maximum absolute error', () {
+      final result = Result.from([
+        DateTime(2026),
+        DateTime(2026).add(const Duration(milliseconds: 100)),
+        DateTime(2026).add(const Duration(milliseconds: 250)),
+      ]);
+
+      expect(result.maxAbsError, 25);
+      expect(result.maxAbsErrorPercent, 0.2);
+    });
+
+    test('calculates RMSE while excluding the first zero residual', () {
+      final result = Result.from([
+        DateTime(2026),
+        DateTime(2026).add(const Duration(milliseconds: 100)),
+        DateTime(2026).add(const Duration(milliseconds: 250)),
+      ]);
+
+      expect(result.rootMeanSquareError, closeTo(17.6, 0.1));
+
+      expect(result.rmsePercent, closeTo(0.14, 0.01));
+    });
+
+    test('preserves tap ordering', () {
+      final start = DateTime(2026, 1, 1, 12);
+
+      final result = Result.from([
+        start,
+        start.add(const Duration(milliseconds: 150)),
+        start.add(const Duration(milliseconds: 300)),
+      ]);
+
+      expect(result.taps, [0, 150, 300]);
+    });
+  });
+
+  group('Confidence', () {
+    test('produces a confidence interval', () {
+      final result = Result.from([
+        DateTime(2026),
+        DateTime(2026).add(const Duration(milliseconds: 100)),
+        DateTime(2026).add(const Duration(milliseconds: 200)),
+        DateTime(2026).add(const Duration(milliseconds: 300)),
+      ]);
+
+      final confidence = result.confidence;
+
+      expect(confidence.lower.count, lessThanOrEqualTo(confidence.upper.count));
+      expect(confidence.ciWidth, greaterThanOrEqualTo(0));
+    });
+
+    test('confidence interval contains the median for stable samples', () {
+      final result = Result.from([
+        DateTime(2026),
+        DateTime(2026).add(const Duration(milliseconds: 100)),
+        DateTime(2026).add(const Duration(milliseconds: 200)),
+        DateTime(2026).add(const Duration(milliseconds: 300)),
+        DateTime(2026).add(const Duration(milliseconds: 400)),
+      ]);
+
+      final confidence = result.confidence;
+
+      expect(confidence.lower.count, lessThanOrEqualTo(result.median.count));
+      expect(confidence.upper.count, greaterThanOrEqualTo(result.median.count));
+
+      expect(
+        confidence.ciWidth,
+        closeTo(
+          (confidence.upper - confidence.lower).count.toDouble(),
+          0.000001,
+        ),
+      );
     });
   });
 }
