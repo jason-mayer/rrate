@@ -16,14 +16,6 @@ class _$Result extends Result {
   @override
   final Sample median;
   @override
-  final Sample? confidence95lower;
-  @override
-  final Sample? confidence95upper;
-  @override
-  final double? ciWidth;
-  @override
-  final double? ciWidthPercent;
-  @override
   final BuiltList<double> residuals;
   @override
   final double maxAbsError;
@@ -42,10 +34,6 @@ class _$Result extends Result {
     required this.taps,
     required this.samples,
     required this.median,
-    this.confidence95lower,
-    this.confidence95upper,
-    this.ciWidth,
-    this.ciWidthPercent,
     required this.residuals,
     required this.maxAbsError,
     required this.maxAbsErrorPercent,
@@ -67,10 +55,6 @@ class _$Result extends Result {
         taps == other.taps &&
         samples == other.samples &&
         median == other.median &&
-        confidence95lower == other.confidence95lower &&
-        confidence95upper == other.confidence95upper &&
-        ciWidth == other.ciWidth &&
-        ciWidthPercent == other.ciWidthPercent &&
         residuals == other.residuals &&
         maxAbsError == other.maxAbsError &&
         maxAbsErrorPercent == other.maxAbsErrorPercent &&
@@ -85,10 +69,6 @@ class _$Result extends Result {
     _$hash = $jc(_$hash, taps.hashCode);
     _$hash = $jc(_$hash, samples.hashCode);
     _$hash = $jc(_$hash, median.hashCode);
-    _$hash = $jc(_$hash, confidence95lower.hashCode);
-    _$hash = $jc(_$hash, confidence95upper.hashCode);
-    _$hash = $jc(_$hash, ciWidth.hashCode);
-    _$hash = $jc(_$hash, ciWidthPercent.hashCode);
     _$hash = $jc(_$hash, residuals.hashCode);
     _$hash = $jc(_$hash, maxAbsError.hashCode);
     _$hash = $jc(_$hash, maxAbsErrorPercent.hashCode);
@@ -105,10 +85,6 @@ class _$Result extends Result {
           ..add('taps', taps)
           ..add('samples', samples)
           ..add('median', median)
-          ..add('confidence95lower', confidence95lower)
-          ..add('confidence95upper', confidence95upper)
-          ..add('ciWidth', ciWidth)
-          ..add('ciWidthPercent', ciWidthPercent)
           ..add('residuals', residuals)
           ..add('maxAbsError', maxAbsError)
           ..add('maxAbsErrorPercent', maxAbsErrorPercent)
@@ -136,25 +112,6 @@ class ResultBuilder implements Builder<Result, ResultBuilder> {
   Sample? _median;
   Sample? get median => _$this._median;
   set median(Sample? median) => _$this._median = median;
-
-  Sample? _confidence95lower;
-  Sample? get confidence95lower => _$this._confidence95lower;
-  set confidence95lower(Sample? confidence95lower) =>
-      _$this._confidence95lower = confidence95lower;
-
-  Sample? _confidence95upper;
-  Sample? get confidence95upper => _$this._confidence95upper;
-  set confidence95upper(Sample? confidence95upper) =>
-      _$this._confidence95upper = confidence95upper;
-
-  double? _ciWidth;
-  double? get ciWidth => _$this._ciWidth;
-  set ciWidth(double? ciWidth) => _$this._ciWidth = ciWidth;
-
-  double? _ciWidthPercent;
-  double? get ciWidthPercent => _$this._ciWidthPercent;
-  set ciWidthPercent(double? ciWidthPercent) =>
-      _$this._ciWidthPercent = ciWidthPercent;
 
   ListBuilder<double>? _residuals;
   ListBuilder<double> get residuals =>
@@ -189,10 +146,6 @@ class ResultBuilder implements Builder<Result, ResultBuilder> {
       _taps = $v.taps.toBuilder();
       _samples = $v.samples.toBuilder();
       _median = $v.median;
-      _confidence95lower = $v.confidence95lower;
-      _confidence95upper = $v.confidence95upper;
-      _ciWidth = $v.ciWidth;
-      _ciWidthPercent = $v.ciWidthPercent;
       _residuals = $v.residuals.toBuilder();
       _maxAbsError = $v.maxAbsError;
       _maxAbsErrorPercent = $v.maxAbsErrorPercent;
@@ -234,10 +187,6 @@ class ResultBuilder implements Builder<Result, ResultBuilder> {
               r'Result',
               'median',
             ),
-            confidence95lower: confidence95lower,
-            confidence95upper: confidence95upper,
-            ciWidth: ciWidth,
-            ciWidthPercent: ciWidthPercent,
             residuals: residuals.build(),
             maxAbsError: BuiltValueNullFieldError.checkNotNull(
               maxAbsError,
@@ -279,124 +228,6 @@ class ResultBuilder implements Builder<Result, ResultBuilder> {
       }
       rethrow;
     }
-    replace(_$result);
-    return _$result;
-  }
-}
-
-class _$Confidence extends Confidence {
-  @override
-  final Sample lower;
-  @override
-  final Sample upper;
-  @override
-  final double ciWidth;
-
-  factory _$Confidence([void Function(ConfidenceBuilder)? updates]) =>
-      (ConfidenceBuilder()..update(updates))._build();
-
-  _$Confidence._({
-    required this.lower,
-    required this.upper,
-    required this.ciWidth,
-  }) : super._();
-  @override
-  Confidence rebuild(void Function(ConfidenceBuilder) updates) =>
-      (toBuilder()..update(updates)).build();
-
-  @override
-  ConfidenceBuilder toBuilder() => ConfidenceBuilder()..replace(this);
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(other, this)) return true;
-    return other is Confidence &&
-        lower == other.lower &&
-        upper == other.upper &&
-        ciWidth == other.ciWidth;
-  }
-
-  @override
-  int get hashCode {
-    var _$hash = 0;
-    _$hash = $jc(_$hash, lower.hashCode);
-    _$hash = $jc(_$hash, upper.hashCode);
-    _$hash = $jc(_$hash, ciWidth.hashCode);
-    _$hash = $jf(_$hash);
-    return _$hash;
-  }
-
-  @override
-  String toString() {
-    return (newBuiltValueToStringHelper(r'Confidence')
-          ..add('lower', lower)
-          ..add('upper', upper)
-          ..add('ciWidth', ciWidth))
-        .toString();
-  }
-}
-
-class ConfidenceBuilder implements Builder<Confidence, ConfidenceBuilder> {
-  _$Confidence? _$v;
-
-  Sample? _lower;
-  Sample? get lower => _$this._lower;
-  set lower(Sample? lower) => _$this._lower = lower;
-
-  Sample? _upper;
-  Sample? get upper => _$this._upper;
-  set upper(Sample? upper) => _$this._upper = upper;
-
-  double? _ciWidth;
-  double? get ciWidth => _$this._ciWidth;
-  set ciWidth(double? ciWidth) => _$this._ciWidth = ciWidth;
-
-  ConfidenceBuilder();
-
-  ConfidenceBuilder get _$this {
-    final $v = _$v;
-    if ($v != null) {
-      _lower = $v.lower;
-      _upper = $v.upper;
-      _ciWidth = $v.ciWidth;
-      _$v = null;
-    }
-    return this;
-  }
-
-  @override
-  void replace(Confidence other) {
-    _$v = other as _$Confidence;
-  }
-
-  @override
-  void update(void Function(ConfidenceBuilder)? updates) {
-    if (updates != null) updates(this);
-  }
-
-  @override
-  Confidence build() => _build();
-
-  _$Confidence _build() {
-    final _$result =
-        _$v ??
-        _$Confidence._(
-          lower: BuiltValueNullFieldError.checkNotNull(
-            lower,
-            r'Confidence',
-            'lower',
-          ),
-          upper: BuiltValueNullFieldError.checkNotNull(
-            upper,
-            r'Confidence',
-            'upper',
-          ),
-          ciWidth: BuiltValueNullFieldError.checkNotNull(
-            ciWidth,
-            r'Confidence',
-            'ciWidth',
-          ),
-        );
     replace(_$result);
     return _$result;
   }

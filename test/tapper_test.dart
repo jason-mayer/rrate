@@ -356,7 +356,7 @@ Result {
         DateTime(2026).add(const Duration(milliseconds: 300)),
       ]);
 
-      final confidence = Confidence.from(result);
+      final confidence = result.confidence;
 
       expect(confidence.lower.count, lessThanOrEqualTo(confidence.upper.count));
       expect(confidence.ciWidth, greaterThanOrEqualTo(0));
@@ -371,7 +371,7 @@ Result {
         DateTime(2026).add(const Duration(milliseconds: 400)),
       ]);
 
-      final confidence = Confidence.from(result);
+      final confidence = result.confidence;
 
       expect(confidence.lower.count, lessThanOrEqualTo(result.median.count));
       expect(confidence.upper.count, greaterThanOrEqualTo(result.median.count));

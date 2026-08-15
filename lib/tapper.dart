@@ -5,6 +5,8 @@ import 'package:built_collection/built_collection.dart';
 import 'package:built_value/built_value.dart';
 import 'package:flutter/material.dart' hide Builder;
 
+import 'package:rrate/stats.dart';
+
 part 'tapper.g.dart';
 
 base class Tapper with ChangeNotifier {
@@ -69,17 +71,14 @@ abstract class Result implements Built<Result, ResultBuilder> {
 
   Sample get median;
 
-  Sample? get confidence95lower;
-  Sample? get confidence95upper;
-  double? get ciWidth;
-  double? get ciWidthPercent;
-
   BuiltList<double> get residuals;
   double get maxAbsError;
   double get maxAbsErrorPercent;
 
   double get rootMeanSquareError;
   double get rmsePercent;
+
+  Confidence get confidence => Confidence.from(samples.toList());
 
   factory Result.from(Iterable<DateTime> taps) => Result._build((builder) {
     final offsets = taps.map((tap) {
@@ -119,82 +118,6 @@ abstract class Result implements Built<Result, ResultBuilder> {
     );
     builder.rmsePercent = builder.rootMeanSquareError! / builder.median!.count;
   });
-}
-
-abstract class Confidence implements Built<Confidence, ConfidenceBuilder> {
-  Confidence._();
-
-  static final random = math.Random();
-
-  factory Confidence._build(void Function(ConfidenceBuilder builder) build) =
-      _$Confidence;
-
-  Sample get lower;
-  Sample get upper;
-  double get ciWidth;
-
-  factory Confidence.from(Result result) => Confidence._build((builder) {
-    final samples = result.samples;
-
-    final list = List.generate(10000, (_) {
-      final taps = List.generate(samples.length, (index) {
-        return samples[random.nextInt(samples.length)];
-      });
-
-      return taps.map((s) => s.count).sorted.median!;
-    });
-
-    list.sort((a, b) => a.compareTo(b));
-    builder.lower = Sample(list.percentile(0.025)!);
-    builder.upper = Sample(list.percentile(0.975)!);
-    builder.ciWidth = (builder.upper! - builder.lower!).count.toDouble();
-  });
-}
-
-extension on List<num> {
-  double? get median {
-    if (isEmpty) return null;
-
-    final index = length ~/ 2;
-
-    if (length % 2 == 0) {
-      return (this[index] + this[index - 1]) / 2;
-    }
-
-    return this[index].toDouble();
-  }
-
-  double? percentile(double percentile) {
-    if (isEmpty) return null;
-    final pos = percentile * (length - 1);
-    final lower = pos.floor();
-    final upper = pos.ceil();
-
-    if (lower == upper) return this[lower].toDouble();
-
-    final t = pos - lower;
-    return this[lower] * (1 - t) + this[upper] * t;
-  }
-}
-
-extension<N extends num> on Iterable<N> {
-  N get max => reduce((a, b) => a > b ? a : b);
-  N get sum => reduce((a, b) => a + b as N);
-
-  List<N> get sorted => toList()..sort((a, b) => a.compareTo(b));
-
-  Iterable<DistanceSample> get samples sync* {
-    final List<N> items = [];
-
-    for (final (index, item) in indexed) {
-      for (final (index2, item2) in items.indexed) {
-        final distance = index - index2;
-        yield DistanceSample((item - item2) / distance, distance);
-      }
-
-      items.add(item);
-    }
-  }
 }
 
 class Sample {
