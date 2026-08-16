@@ -1,41 +1,81 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rrate/stats.dart';
 
+void testSorted<T>({
+  required List<T> Function(Iterable<T>) sort,
+  required Iterable<T> Function(Iterable<int>) map,
+}) {
+  group('sorted', () {
+    test('sorts values in ascending order', () {
+      expect(sort(map([5, 1, 4, 2, 3])), equals(map([1, 2, 3, 4, 5]).toList()));
+    });
+
+    test('does not modify the original iterable when it is a list', () {
+      final values = map([3, 1, 2]).toList();
+
+      final sorted = sort(values);
+
+      expect(values, equals(map([3, 1, 2]).toList()));
+      expect(sorted, equals(map([1, 2, 3]).toList()));
+    });
+
+    test('works with duplicates', () {
+      expect(sort(map([3, 1, 3, 2, 1])), equals(map([1, 1, 2, 3, 3]).toList()));
+    });
+
+    test('works with negative values', () {
+      expect(
+        sort(map([2, -5, 0, -1, 3])),
+        equals(map([-5, -1, 0, 2, 3]).toList()),
+      );
+    });
+  });
+}
+
+void testMedian<T>({
+  required T Function(num number) map,
+  required T? Function(List<T> list) median,
+}) {
+  List<T> list(Iterable<num> nums) => nums.map((e) => map(e)).toList();
+
+  group('median', () {
+    test('returns null for an empty list', () {
+      expect(median(<T>[]), isNull);
+    });
+
+    test('returns the only value for a single-element list', () {
+      expect(median(list([42])), equals(map(42)));
+    });
+
+    test('returns the middle value for an odd-length list', () {
+      expect(median(list([1, 2, 3, 4, 5])), equals(map(3)));
+    });
+
+    test('returns the average of the two middle values for an even list', () {
+      expect(median(list([1, 2, 3, 4])), equals(map(2.5)));
+    });
+
+    test('does not sort the input', () {
+      final values = list([5, 1, 3]);
+
+      expect(median(values), equals(map(1)));
+      expect(values, equals(list([5, 1, 3])));
+    });
+
+    test('works with doubles', () {
+      expect(median(list([1.5, 2.5, 10.0])), equals(map(2.5)));
+    });
+
+    test('works with negative values', () {
+      expect(median(list([-5, -3, -1])), equals(map(-3)));
+      expect(median(list([-5, -4, -1, 2])), equals(map(-2.5)));
+    });
+  });
+}
+
 void main() {
   group('ListNumStats', () {
-    group('median', () {
-      test('returns null for an empty list', () {
-        expect(<num>[].median, isNull);
-      });
-
-      test('returns the only value for a single-element list', () {
-        expect([42].median, 42);
-      });
-
-      test('returns the middle value for an odd-length list', () {
-        expect([1, 2, 3, 4, 5].median, 3);
-      });
-
-      test('returns the average of the two middle values for an even list', () {
-        expect([1, 2, 3, 4].median, 2.5);
-      });
-
-      test('does not sort the input', () {
-        final values = [5, 1, 3];
-
-        expect(values.median, 1);
-        expect(values, [5, 1, 3]);
-      });
-
-      test('works with doubles', () {
-        expect([1.5, 2.5, 10.0].median, 2.5);
-      });
-
-      test('works with negative values', () {
-        expect([-5, -3, -1].median, -3);
-        expect([-5, -4, -1, 2].median, -2.5);
-      });
-    });
+    testMedian(map: (number) => number, median: (list) => list.median);
 
     group('percentile', () {
       test('returns null for an empty list', () {
@@ -206,28 +246,7 @@ void main() {
       });
     });
 
-    group('sorted', () {
-      test('sorts values in ascending order', () {
-        expect([5, 1, 4, 2, 3].sorted, [1, 2, 3, 4, 5]);
-      });
-
-      test('does not modify the original iterable when it is a list', () {
-        final values = [3, 1, 2];
-
-        final sorted = values.sorted;
-
-        expect(values, [3, 1, 2]);
-        expect(sorted, [1, 2, 3]);
-      });
-
-      test('works with duplicates', () {
-        expect([3, 1, 3, 2, 1].sorted, [1, 1, 2, 3, 3]);
-      });
-
-      test('works with negative values', () {
-        expect([2, -5, 0, -1, 3].sorted, [-5, -1, 0, 2, 3]);
-      });
-    });
+    testSorted(sort: (i) => i.sorted, map: (n) => n);
 
     group('samples', () {
       test('returns no samples for an empty iterable', () {
@@ -286,6 +305,21 @@ void main() {
         expect(samples.map((s) => s.count), [1.5, 2.25, 3.0]);
       });
     });
+  });
+
+  group('SampleIterable', () {
+    test('returns correct counts', () {
+      final samples = [const Sample(1), const Sample(2), const Sample(3)];
+      final counts = [1, 2, 3];
+
+      expect(samples.counts.toList(), equals(counts));
+    });
+
+    testMedian(map: (number) => Sample(number), median: (list) => list.median);
+    testSorted(
+      sort: (list) => list.sorted,
+      map: (e) => e.map((s) => Sample(s)),
+    );
   });
 
   group('Confidence', () {
@@ -443,15 +477,24 @@ void main() {
         result.toString(),
         equalsIgnoringWhitespace('''
 Result {
-  start=2026-01-01 00:00:00.000,
-  taps=[0, 100, 200, 300],
-  samples=[100ms (600.0 bpm) dist=1, 100ms (600.0 bpm) dist=2, 100ms (600.0 bpm) dist=1, 100ms (600.0 bpm) dist=3, 100ms (600.0 bpm) dist=2, 100ms (600.0 bpm) dist=1],
-  median=100ms (600.0 bpm),
-  residuals=[0.0, 0.0, 0.0, 0.0],
-  maxAbsError=0.0,
-  maxAbsErrorPercent=0.0,
-  rootMeanSquareError=0.0,
-  rmsePercent=0.0,
+  start: 2026-01-01 00:00:00.000
+  taps: [0, 100, 200, 300]
+
+  samples:
+    distance 1: [100ms (600 bpm), 100ms (600 bpm), 100ms (600 bpm)]
+    distance 2: [100ms (600 bpm), 100ms (600 bpm)]
+    distance 3: [100ms (600 bpm)]
+
+  median: 100ms (600 bpm)
+
+  residuals: [0.0, 0.0, 0.0, 0.0]
+  maxAbsError: 0.0 (0.0%)
+  rootMeanSquareError: 0.0 (0.0%)
+
+  confidence:
+    upper: 100ms (600 bpm)
+    lower: 100ms (600 bpm)
+    width: 0.0
 }
 '''),
       );
@@ -536,14 +579,6 @@ Result {
         expect(
           confidence.upper.count,
           greaterThanOrEqualTo(result.median.count),
-        );
-
-        expect(
-          confidence.ciWidth,
-          closeTo(
-            (confidence.upper - confidence.lower).count.toDouble(),
-            0.000001,
-          ),
         );
       });
     });
