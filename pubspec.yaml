@@ -10,7 +10,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  built_value: ^8.12.6
+  built_value: ^8.12.7
   built_collection: ^5.1.1
 
 dev_dependencies:
