@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rrate/stats.dart';
 import 'package:rrate/tapper.dart';
 
 void main() {

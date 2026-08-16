@@ -1,6 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'tapper.dart';
+part of 'stats.dart';
 
 // **************************************************************************
 // BuiltValueGenerator
