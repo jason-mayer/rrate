@@ -78,6 +78,18 @@ extension SampleList on List<Sample> {
   }
 }
 
+extension DateTimeIterable on Iterable<DateTime> {
+  Iterable<int> get offsets {
+    final first = firstOrNull;
+
+    if (first == null) {
+      return const Iterable.empty();
+    }
+
+    return map((t) => t.millisecondsSinceEpoch - first.millisecondsSinceEpoch);
+  }
+}
+
 class Confidence {
   final Sample lower;
   final Sample upper;
@@ -130,14 +142,8 @@ class Result {
   double get maxAbsErrorPercent => maxAbsError / median.count;
 
   factory Result.from(Iterable<DateTime> times) {
-    DateTime? start;
-
-    final taps = times.map((tap) {
-      start ??= tap;
-      final offset = tap.millisecondsSinceEpoch - start!.millisecondsSinceEpoch;
-
-      return offset;
-    }).toList();
+    final start = times.firstOrNull;
+    final taps = times.offsets.toList();
 
     if (taps.length < 2) {
       throw ArgumentError(

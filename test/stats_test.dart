@@ -322,6 +322,29 @@ void main() {
     );
   });
 
+  group('DateTimeIterable', () {
+    test('returns empty iterable when source is empty', () {
+      expect(<DateTime>[].offsets, isEmpty);
+    });
+
+    test('returns 0 with one item', () {
+      final times = [DateTime(2026)];
+
+      expect(times.offsets, equals([0]));
+    });
+
+    test('returns offsets', () {
+      final times = [
+        DateTime(2026),
+        DateTime(2026).add(const Duration(milliseconds: 150)),
+        DateTime(2026).add(const Duration(milliseconds: 200)),
+        DateTime(2026).add(const Duration(milliseconds: 350)),
+      ];
+
+      expect(times.offsets, equals([0, 150, 200, 350]));
+    });
+  });
+
   group('Confidence', () {
     test('rejects an empty sample list', () {
       expect(

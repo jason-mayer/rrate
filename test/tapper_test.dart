@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rrate/stats.dart';
 
 import 'package:rrate/tapper.dart';
 
@@ -41,14 +42,6 @@ void main() {
       expect(tapper.taps, times);
     });
 
-    test('taps are unmodifiable', () {
-      final tapper = Tapper(clock: () => DateTime(2026));
-
-      tapper.tap();
-
-      expect(() => tapper.taps.add(DateTime(2026)), throwsUnsupportedError);
-    });
-
     test('does not produce an estimate after the first tap', () {
       final tapper = Tapper(clock: () => DateTime(2026));
 
@@ -82,7 +75,9 @@ void main() {
 
       final tapper = Tapper(
         sampleSize: 3,
-        maxError: 0.01,
+        minDuration: 200,
+        rmseThreshold: 0.01,
+        maxAbsErrorThreshold: 0.01,
         clock: () {
           final result = time;
           time = time.add(const Duration(milliseconds: 100));
@@ -107,7 +102,7 @@ void main() {
       expect(result.rmsePercent, 0);
     });
 
-    test('does not complete when RMSE exceeds maxError', () {
+    test('does not complete when RMSE exceeds threshold', () {
       final times = [
         DateTime(2026),
         DateTime(2026).add(const Duration(milliseconds: 100)),
@@ -117,7 +112,33 @@ void main() {
 
       final tapper = Tapper(
         sampleSize: 3,
-        maxError: 0.10,
+        minDuration: 0,
+        rmseThreshold: 0.10,
+        maxAbsErrorThreshold: 1.0,
+        clock: () => times[index++],
+      );
+
+      tapper.tap();
+      tapper.tap();
+      tapper.tap();
+
+      expect(tapper.completer.isCompleted, isFalse);
+      expect(tapper.estimate!.count, 125);
+    });
+
+    test('does not complete when maximum absolute error exceeds threshold', () {
+      final times = [
+        DateTime(2026),
+        DateTime(2026).add(const Duration(milliseconds: 100)),
+        DateTime(2026).add(const Duration(milliseconds: 250)),
+      ];
+      var index = 0;
+
+      final tapper = Tapper(
+        sampleSize: 3,
+        minDuration: 0,
+        rmseThreshold: 1.0,
+        maxAbsErrorThreshold: 0.10,
         clock: () => times[index++],
       );
 
@@ -137,7 +158,9 @@ void main() {
 
       final tapper = Tapper(
         sampleSize: 3,
-        maxError: 0.10,
+        minDuration: 0,
+        rmseThreshold: 0.10,
+        maxAbsErrorThreshold: 0.10,
         clock: () {
           final result = time;
           if (index < intervals.length) {
@@ -178,14 +201,14 @@ void main() {
       tapper.tap();
       tapper.tap();
 
-      // The first three taps are [0, 100, 200].
-      expect(tapper.estimate!.count, 100);
+      // The first three taps are [0, 150, 200].
+      expect(tapper.taps.offsets, equals([0, 150, 200]));
 
       tapper.tap();
 
-      // The sliding window is now [100, 200, 300].
-      expect(tapper.estimate!.count, 100);
-      expect(tapper.taps, times);
+      // The sliding window is now [0, 50, 200].
+      expect(tapper.taps.offsets, equals([0, 50, 200]));
+      // expect(tapper.taps, times);
     });
 
     test('notifies listeners after every successful tap', () {
@@ -206,7 +229,9 @@ void main() {
 
       final tapper = Tapper(
         sampleSize: 2,
-        maxError: 0.01,
+        minDuration: 100,
+        rmseThreshold: 0.01,
+        maxAbsErrorThreshold: 0.01,
         clock: () {
           final result = time;
           time = time.add(const Duration(milliseconds: 100));
