@@ -14,8 +14,6 @@ void main() async {
       '-o',
       './coverage/html',
       '--suppress-aliases',
-      '--exclude',
-      '.g.dart',
       '--flat',
       '--no-sourceview',
       '--no-function-coverage',

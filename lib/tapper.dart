@@ -1,22 +1,51 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:built_collection/built_collection.dart';
-import 'package:built_value/built_value.dart';
 import 'package:flutter/material.dart' hide Builder;
 
 import 'package:rrate/stats.dart';
 
-part 'tapper.g.dart';
-
 base class Tapper with ChangeNotifier {
+  /// Sample size.
+  ///
+  /// The tapper will analyze the most recent `sampleSize` taps. Any
+  /// earlier taps will be discarded. The tapper will keep collecting data
+  /// until at least `sampleSize` taps have been collected.
+  ///
+  /// Default: 5
   final int sampleSize;
-  final double maxError;
+
+  /// Minimum sampling duration, in milliseconds.
+  ///
+  /// The tapper will not complete until data has been collected for at
+  /// least `minDuration` milliseconds.
+  ///
+  /// Default: 10_000 (10 seconds)
+  final int minDuration;
+
+  /// Maximum allowed normalized root mean square error (NRMSE)
+  ///
+  /// The tapper will keep collecting data until the NRMSE (RMSE / median)
+  /// is equal to or below this threshold.
+  ///
+  /// Default: 0.075 (7.5%)
+  final double rmseThreshold;
+
+  /// Maximum allowed normalized maximum absolute error (NMAE)
+  ///
+  /// The tapper will keep collecting data until the NMAE (MAE / median)
+  /// is equal to or below this threshold.
+  ///
+  /// Default: 0.1 (10%)
+  final double maxAbsErrorThreshold;
+
   final DateTime Function() clock;
 
   Tapper({
     this.sampleSize = 5,
-    this.maxError = 0.10,
+    this.minDuration = 10_000,
+    this.rmseThreshold = 0.075,
+    this.maxAbsErrorThreshold = 0.1,
     DateTime Function()? clock,
   }) : clock = clock ?? DateTime.now {
     if (sampleSize < 2) {
@@ -24,7 +53,9 @@ base class Tapper with ChangeNotifier {
     }
   }
   final List<DateTime> _taps = [];
-  List<DateTime> get taps => List.unmodifiable(_taps);
+
+  Iterable<DateTime> get taps =>
+      _taps.skip(math.max(0, _taps.length - sampleSize));
 
   final Completer<Result> completer = Completer();
 
@@ -41,14 +72,18 @@ base class Tapper with ChangeNotifier {
 
     if (_taps.length == 1) return;
 
-    final result = Result.from(
-      taps.skip(math.max(0, taps.length - sampleSize)),
-    );
+    final result = Result.from(taps);
 
     _estimate = result.median;
 
     if (result.taps.length < sampleSize) return;
-    if (result.rmsePercent > maxError) return;
+
+    final duration =
+        _taps.last.millisecondsSinceEpoch - _taps.first.millisecondsSinceEpoch;
+
+    if (duration < minDuration) return;
+    if (result.rmsePercent > rmseThreshold) return;
+    if (result.maxAbsErrorPercent > maxAbsErrorThreshold) return;
 
     completer.complete(result);
   }
@@ -56,94 +91,5 @@ base class Tapper with ChangeNotifier {
   void tap() {
     _tap();
     notifyListeners();
-  }
-}
-
-abstract class Result implements Built<Result, ResultBuilder> {
-  Result._();
-
-  factory Result._build(void Function(ResultBuilder builder) build) = _$Result;
-
-  DateTime get start;
-
-  BuiltList<int> get taps;
-  BuiltList<Sample> get samples;
-
-  Sample get median;
-
-  BuiltList<double> get residuals;
-  double get maxAbsError;
-  double get maxAbsErrorPercent;
-
-  double get rootMeanSquareError;
-  double get rmsePercent;
-
-  Confidence get confidence => Confidence.from(samples.toList());
-
-  factory Result.from(Iterable<DateTime> taps) => Result._build((builder) {
-    final offsets = taps.map((tap) {
-      builder.start ??= tap;
-      final offset =
-          tap.millisecondsSinceEpoch - builder.start!.millisecondsSinceEpoch;
-
-      return offset;
-    });
-
-    builder.taps.addAll(offsets);
-
-    if (builder.taps.length < 2) {
-      throw ArgumentError(
-        'At least 2 data points are required (${builder.taps.length} provided)',
-        'taps',
-      );
-    }
-
-    builder.samples.addAll(builder.taps.build().samples);
-
-    final durations = builder.samples.build().map((s) => s.count).sorted;
-    builder.median = Sample(durations.median!);
-
-    final error = offsets.indexed
-        .map((i) => (i.$2 - i.$1 * builder.median!.count).toDouble())
-        .toList();
-
-    builder.residuals.addAll(error);
-    builder.maxAbsError = error.map((e) => e.abs()).max;
-    builder.maxAbsErrorPercent = builder.maxAbsError! / builder.median!.count;
-
-    // the first tap is always zero and will always have a residual of zero
-    // for that reason, calculate RMSE using n - 1 elements to ignore the first
-    builder.rootMeanSquareError = math.sqrt(
-      error.map((e) => math.pow(e, 2)).sum / (error.length - 1),
-    );
-    builder.rmsePercent = builder.rootMeanSquareError! / builder.median!.count;
-  });
-}
-
-class Sample {
-  final num count;
-
-  const Sample(this.count);
-
-  Sample operator -(Sample other) {
-    return Sample(count - other.count);
-  }
-
-  double get asBpm => 60_000 / count;
-
-  @override
-  String toString() {
-    return '${count.toStringAsFixed(0)}ms (${asBpm.toStringAsFixed(1)} bpm)';
-  }
-}
-
-class DistanceSample extends Sample {
-  final int distance;
-
-  const DistanceSample(super.count, this.distance);
-
-  @override
-  String toString() {
-    return '${super.toString()} dist=$distance';
   }
 }

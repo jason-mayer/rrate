@@ -1,42 +1,81 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rrate/stats.dart';
-import 'package:rrate/tapper.dart';
+
+void testSorted<T>({
+  required List<T> Function(Iterable<T>) sort,
+  required Iterable<T> Function(Iterable<int>) map,
+}) {
+  group('sorted', () {
+    test('sorts values in ascending order', () {
+      expect(sort(map([5, 1, 4, 2, 3])), equals(map([1, 2, 3, 4, 5]).toList()));
+    });
+
+    test('does not modify the original iterable when it is a list', () {
+      final values = map([3, 1, 2]).toList();
+
+      final sorted = sort(values);
+
+      expect(values, equals(map([3, 1, 2]).toList()));
+      expect(sorted, equals(map([1, 2, 3]).toList()));
+    });
+
+    test('works with duplicates', () {
+      expect(sort(map([3, 1, 3, 2, 1])), equals(map([1, 1, 2, 3, 3]).toList()));
+    });
+
+    test('works with negative values', () {
+      expect(
+        sort(map([2, -5, 0, -1, 3])),
+        equals(map([-5, -1, 0, 2, 3]).toList()),
+      );
+    });
+  });
+}
+
+void testMedian<T>({
+  required T Function(num number) map,
+  required T? Function(List<T> list) median,
+}) {
+  List<T> list(Iterable<num> nums) => nums.map((e) => map(e)).toList();
+
+  group('median', () {
+    test('returns null for an empty list', () {
+      expect(median(<T>[]), isNull);
+    });
+
+    test('returns the only value for a single-element list', () {
+      expect(median(list([42])), equals(map(42)));
+    });
+
+    test('returns the middle value for an odd-length list', () {
+      expect(median(list([1, 2, 3, 4, 5])), equals(map(3)));
+    });
+
+    test('returns the average of the two middle values for an even list', () {
+      expect(median(list([1, 2, 3, 4])), equals(map(2.5)));
+    });
+
+    test('does not sort the input', () {
+      final values = list([5, 1, 3]);
+
+      expect(median(values), equals(map(1)));
+      expect(values, equals(list([5, 1, 3])));
+    });
+
+    test('works with doubles', () {
+      expect(median(list([1.5, 2.5, 10.0])), equals(map(2.5)));
+    });
+
+    test('works with negative values', () {
+      expect(median(list([-5, -3, -1])), equals(map(-3)));
+      expect(median(list([-5, -4, -1, 2])), equals(map(-2.5)));
+    });
+  });
+}
 
 void main() {
   group('ListNumStats', () {
-    group('median', () {
-      test('returns null for an empty list', () {
-        expect(<num>[].median, isNull);
-      });
-
-      test('returns the only value for a single-element list', () {
-        expect([42].median, 42);
-      });
-
-      test('returns the middle value for an odd-length list', () {
-        expect([1, 2, 3, 4, 5].median, 3);
-      });
-
-      test('returns the average of the two middle values for an even list', () {
-        expect([1, 2, 3, 4].median, 2.5);
-      });
-
-      test('does not sort the input', () {
-        final values = [5, 1, 3];
-
-        expect(values.median, 1);
-        expect(values, [5, 1, 3]);
-      });
-
-      test('works with doubles', () {
-        expect([1.5, 2.5, 10.0].median, 2.5);
-      });
-
-      test('works with negative values', () {
-        expect([-5, -3, -1].median, -3);
-        expect([-5, -4, -1, 2].median, -2.5);
-      });
-    });
+    testMedian(map: (number) => number, median: (list) => list.median);
 
     group('percentile', () {
       test('returns null for an empty list', () {
@@ -207,28 +246,7 @@ void main() {
       });
     });
 
-    group('sorted', () {
-      test('sorts values in ascending order', () {
-        expect([5, 1, 4, 2, 3].sorted, [1, 2, 3, 4, 5]);
-      });
-
-      test('does not modify the original iterable when it is a list', () {
-        final values = [3, 1, 2];
-
-        final sorted = values.sorted;
-
-        expect(values, [3, 1, 2]);
-        expect(sorted, [1, 2, 3]);
-      });
-
-      test('works with duplicates', () {
-        expect([3, 1, 3, 2, 1].sorted, [1, 1, 2, 3, 3]);
-      });
-
-      test('works with negative values', () {
-        expect([2, -5, 0, -1, 3].sorted, [-5, -1, 0, 2, 3]);
-      });
-    });
+    testSorted(sort: (i) => i.sorted, map: (n) => n);
 
     group('samples', () {
       test('returns no samples for an empty iterable', () {
@@ -286,6 +304,44 @@ void main() {
 
         expect(samples.map((s) => s.count), [1.5, 2.25, 3.0]);
       });
+    });
+  });
+
+  group('SampleIterable', () {
+    test('returns correct counts', () {
+      final samples = [const Sample(1), const Sample(2), const Sample(3)];
+      final counts = [1, 2, 3];
+
+      expect(samples.counts.toList(), equals(counts));
+    });
+
+    testMedian(map: (number) => Sample(number), median: (list) => list.median);
+    testSorted(
+      sort: (list) => list.sorted,
+      map: (e) => e.map((s) => Sample(s)),
+    );
+  });
+
+  group('DateTimeIterable', () {
+    test('returns empty iterable when source is empty', () {
+      expect(<DateTime>[].offsets, isEmpty);
+    });
+
+    test('returns 0 with one item', () {
+      final times = [DateTime(2026)];
+
+      expect(times.offsets, equals([0]));
+    });
+
+    test('returns offsets', () {
+      final times = [
+        DateTime(2026),
+        DateTime(2026).add(const Duration(milliseconds: 150)),
+        DateTime(2026).add(const Duration(milliseconds: 200)),
+        DateTime(2026).add(const Duration(milliseconds: 350)),
+      ];
+
+      expect(times.offsets, equals([0, 150, 200, 350]));
     });
   });
 
@@ -387,6 +443,167 @@ void main() {
       expect(confidence.lower.count, greaterThanOrEqualTo(100));
       expect(confidence.upper.count, lessThanOrEqualTo(105));
       expect(confidence.lower.count, lessThanOrEqualTo(confidence.upper.count));
+    });
+  });
+
+  group('Result', () {
+    test('requires at least two taps', () {
+      expect(() => Result.from([DateTime(2026)]), throwsArgumentError);
+
+      expect(() => Result.from(const <DateTime>[]), throwsArgumentError);
+    });
+
+    test('calculates offsets from the first tap', () {
+      final result = Result.from([
+        DateTime(2026),
+        DateTime(2026).add(const Duration(milliseconds: 100)),
+        DateTime(2026).add(const Duration(milliseconds: 250)),
+      ]);
+
+      expect(result.taps, [0, 100, 250]);
+      expect(result.start, DateTime(2026));
+    });
+
+    test('calculates samples from pairwise tap distances', () {
+      final result = Result.from([
+        DateTime(2026),
+        DateTime(2026).add(const Duration(milliseconds: 100)),
+        DateTime(2026).add(const Duration(milliseconds: 200)),
+      ]);
+
+      expect(result.samples.map((s) => s.count), [100, 100, 100]);
+    });
+
+    test('calculates the median sample', () {
+      final result = Result.from([
+        DateTime(2026),
+        DateTime(2026).add(const Duration(milliseconds: 100)),
+        DateTime(2026).add(const Duration(milliseconds: 300)),
+        DateTime(2026).add(const Duration(milliseconds: 600)),
+      ]);
+
+      // 100, 150, 200, 200, 250, 300
+      // sorted: 100, 150, 200, 200, 250, 300
+      // median = 200
+      expect(result.median.count, 200);
+    });
+
+    test('calculates zero error for perfectly regular taps', () {
+      final result = Result.from([
+        DateTime(2026),
+        DateTime(2026).add(const Duration(milliseconds: 100)),
+        DateTime(2026).add(const Duration(milliseconds: 200)),
+        DateTime(2026).add(const Duration(milliseconds: 300)),
+      ]);
+
+      expect(
+        result.toString(),
+        equalsIgnoringWhitespace('''
+Result {
+  start: 2026-01-01 00:00:00.000
+  taps: [0, 100, 200, 300]
+
+  samples:
+    distance 1: [100ms (600 bpm), 100ms (600 bpm), 100ms (600 bpm)]
+    distance 2: [100ms (600 bpm), 100ms (600 bpm)]
+    distance 3: [100ms (600 bpm)]
+
+  median: 100ms (600 bpm)
+
+  residuals: [0.0, 0.0, 0.0, 0.0]
+  maxAbsError: 0.0 (0.0%)
+  rootMeanSquareError: 0.0 (0.0%)
+
+  confidence:
+    upper: 100ms (600 bpm)
+    lower: 100ms (600 bpm)
+    width: 0.0
+}
+'''),
+      );
+    });
+
+    test('calculates residuals', () {
+      final result = Result.from([
+        DateTime(2026),
+        DateTime(2026).add(const Duration(milliseconds: 100)),
+        DateTime(2026).add(const Duration(milliseconds: 250)),
+      ]);
+
+      expect(result.median.count, 125);
+      expect(result.residuals, [0, -25, 0]);
+    });
+
+    test('calculates maximum absolute error', () {
+      final result = Result.from([
+        DateTime(2026),
+        DateTime(2026).add(const Duration(milliseconds: 100)),
+        DateTime(2026).add(const Duration(milliseconds: 250)),
+      ]);
+
+      expect(result.maxAbsError, 25);
+      expect(result.maxAbsErrorPercent, 0.2);
+    });
+
+    test('calculates RMSE while excluding the first zero residual', () {
+      final result = Result.from([
+        DateTime(2026),
+        DateTime(2026).add(const Duration(milliseconds: 100)),
+        DateTime(2026).add(const Duration(milliseconds: 250)),
+      ]);
+
+      expect(result.rootMeanSquareError, closeTo(17.6, 0.1));
+
+      expect(result.rmsePercent, closeTo(0.14, 0.01));
+    });
+
+    test('preserves tap ordering', () {
+      final start = DateTime(2026, 1, 1, 12);
+
+      final result = Result.from([
+        start,
+        start.add(const Duration(milliseconds: 150)),
+        start.add(const Duration(milliseconds: 300)),
+      ]);
+
+      expect(result.taps, [0, 150, 300]);
+    });
+
+    group('Confidence', () {
+      test('produces a confidence interval', () {
+        final result = Result.from([
+          DateTime(2026),
+          DateTime(2026).add(const Duration(milliseconds: 100)),
+          DateTime(2026).add(const Duration(milliseconds: 200)),
+          DateTime(2026).add(const Duration(milliseconds: 300)),
+        ]);
+
+        final confidence = result.confidence;
+
+        expect(
+          confidence.lower.count,
+          lessThanOrEqualTo(confidence.upper.count),
+        );
+        expect(confidence.ciWidth, greaterThanOrEqualTo(0));
+      });
+
+      test('confidence interval contains the median for stable samples', () {
+        final result = Result.from([
+          DateTime(2026),
+          DateTime(2026).add(const Duration(milliseconds: 100)),
+          DateTime(2026).add(const Duration(milliseconds: 200)),
+          DateTime(2026).add(const Duration(milliseconds: 300)),
+          DateTime(2026).add(const Duration(milliseconds: 400)),
+        ]);
+
+        final confidence = result.confidence;
+
+        expect(confidence.lower.count, lessThanOrEqualTo(result.median.count));
+        expect(
+          confidence.upper.count,
+          greaterThanOrEqualTo(result.median.count),
+        );
+      });
     });
   });
 }
